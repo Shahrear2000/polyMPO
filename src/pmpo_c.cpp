@@ -140,11 +140,11 @@ void polympo_createMPs_f(MPMesh_ptr p_mpmesh,
   auto p_MPs = ((polyMPO::MPMesh*)p_mpmesh)->p_MPs;
   p_MPs->setElmIDoffset(offset);
 
-  int self;
-  MPI_Comm_rank(p_MPs->getMPIComm(), &self);
-  std::cout << "[RankSummary] Rank=" << self
-            << " MaterialPoints=" << p_MPs->getCount()
-            << std::endl;  
+  //int self;
+  //MPI_Comm_rank(p_MPs->getMPIComm(), &self);
+  //std::cout << "[RankSummary] Rank=" << self
+  //          << " MaterialPoints=" << p_MPs->getCount()
+  //          << std::endl;  
 }
 
 void polympo_startRebuildMPs_f(MPMesh_ptr p_mpmesh,

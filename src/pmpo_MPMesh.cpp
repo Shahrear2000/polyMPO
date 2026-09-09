@@ -486,11 +486,11 @@ void MPMesh::startCommunication(){
   MPI_Comm_rank(comm, &self);
   MPI_Comm_size(comm, &numProcsTot);
 
-  std::cout << "[RankSummary] Rank=" << self
-            << " Vertices(total)=" << p_mesh->getNumVertices()
-            << " Vertices(owned)=" << p_mesh->getNumVerticesOwned()
-            << " Elements=" << p_mesh->getNumElements()
-            << std::endl; 
+  //std::cout << "[RankSummary] Rank=" << self
+  //          << " Vertices(total)=" << p_mesh->getNumVertices()
+  //          << " Vertices(owned)=" << p_mesh->getNumVerticesOwned()
+  //          << " Elements=" << p_mesh->getNumElements()
+  //          << std::endl; 
 
   //The routine should work for elements too, although currently the communication 
   //is done for vertices. For elements, the follwoing three variables should correspond 
