@@ -210,7 +210,8 @@ void MPMesh::reconstruct_coeff_full(){
   }); 
   Kokkos::fence();
   this->vtxMatrixMass = vtxMatrixMass_l;
-
+  
+  Kokkos::Timer timer;
     timer.reset();
     invertMatrix(vtxMatrices, radius, true);
     pumipic::RecordTime(
@@ -221,6 +222,8 @@ void MPMesh::reconstruct_coeff_full(){
   postCommunicationComputeTime = phaseTimer.seconds();          //T_before
   //MPI_Barrier(comm);                                              //B4: fast ranks wait here for the slowest rank
   //postCommunicationComputeImbalance = phaseTimer.seconds() - postCommunicationComputeTime;
+
+  const double totalTime = totalTimer.seconds();
  
   const double computeTime =
     preCommunicationComputeTime + postCommunicationComputeTime;
