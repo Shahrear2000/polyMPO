@@ -32,6 +32,8 @@ template <MaterialPointSlice>
 const MeshFieldIndex MPSliceToMeshFieldIndex;
 template <> const MeshFieldIndex MPSliceToMeshFieldIndex < MPF_OpenWaterArea  > = MeshF_OpenWaterArea;
 
+template <> const MeshFieldIndex MPSliceToMeshFieldIndex < MPF_IceAreaCellInitial > = MeshF_IceAreaCellInitial;
+
 template <> const MeshFieldIndex MPSliceToMeshFieldIndex < MPF_IceAreaCategory    > = MeshF_IceAreaCategory;
 template <> const MeshFieldIndex MPSliceToMeshFieldIndex < MPF_IceVolumeCategory  > = MeshF_IceVolumeCategory;
 template <> const MeshFieldIndex MPSliceToMeshFieldIndex < MPF_SnowVolumeCategory > = MeshF_SnowVolumeCategory;

@@ -1971,6 +1971,57 @@ void polympo_getOpenWaterAreaCell_f(MPMesh_ptr p_mpmesh, const int nCells, doubl
   }
 }
 
+void polympo_setIceAreaCellInitialMP_f(MPMesh_ptr p_mpmesh, const int nComps, const int numMPs, double* array){
+    Kokkos::Timer timer;
+    checkMPMeshValid(p_mpmesh);
+
+    auto p_MPs = ((polyMPO::MPMesh*)p_mpmesh)->p_MPs;
+    //Rank information
+    int self;
+    MPI_Comm comm = p_MPs->getMPIComm();
+    MPI_Comm_rank(comm, &self);
+    //Asserts
+    PMT_ALWAYS_ASSERT(nComps == 1);
+    PMT_ALWAYS_ASSERT(numMPs >= p_MPs->getCount());
+    //MP data
+    auto iceAreaCellInitialMP = p_MPs->getData<polyMPO::MPF_IceAreaCellInitial>();
+    auto mpAppID = p_MPs->getData<polyMPO::MPF_MP_APP_ID>();
+
+    //Copy to device
+    kkViewHostU<const double**> iceAreaCellInitialMP_h(array, nComps, numMPs);
+    Kokkos::View<double**> iceAreaCellInitialMP_d("mpIceAreaCellInitial", nComps, numMPs);
+    Kokkos::deep_copy(iceAreaCellInitialMP_d, iceAreaCellInitialMP_h);
+
+    //Set in PS
+    auto setIceAreaCellInitial = PS_LAMBDA(const int& elm, const int& mp, const int& mask){
+        if(mask){
+            iceAreaCellInitialMP(mp,0) = iceAreaCellInitialMP_d(0, mpAppID(mp));
+        }
+    };
+    p_MPs->parallel_for(setIceAreaCellInitial, "setMPIceAreaCellInitial");
+
+    pumipic::RecordTime("PolyMPO_setIceAreaCellInitial" + std::to_string(self), timer.seconds());
+
+    //Temporarily call the MPs to Cell API from here
+    auto mpmesh = ((polyMPO::MPMesh*)p_mpmesh);
+    mpmesh->mapMPsToCells<polyMPO::MPF_IceAreaCellInitial>();
+}
+
+void polympo_getIceAreaCellInitialCell_f(MPMesh_ptr p_mpmesh, const int nCells, double* array){
+
+    checkMPMeshValid(p_mpmesh);
+    auto p_mesh = ((polyMPO::MPMesh*)p_mpmesh)->p_mesh;
+
+    //check the size
+    PMT_ALWAYS_ASSERT(p_mesh->getNumElements()==nCells);
+
+    //copy the device to host
+    auto field = p_mesh->getMeshField<polyMPO::MeshF_IceAreaCellInitial>();
+    auto h_field = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), field);
+    for(int i=0; i<nCells; i++){
+        array[i] = h_field(i,0);
+    }
+}
 
 void polympo_setIceAreaCategoryMP_f(MPMesh_ptr p_mpmesh, const int nComps, const int numMPs, double* array){
   Kokkos::Timer timer;

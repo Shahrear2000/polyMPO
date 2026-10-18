@@ -46,6 +46,7 @@ enum MaterialPointSlice {
   MPF_ReplacementPressure,
   MPF_Vel_IncrTimesTanLatVertexOverRadius,
   MPF_OpenWaterArea,
+  MPF_IceAreaCellInitial,
   MPF_IceAreaCategory,
   MPF_IceVolumeCategory,
   MPF_SnowVolumeCategory,
@@ -83,6 +84,7 @@ template <> struct mpSliceToMeshField < MPF_IcePressure         > { using type =
 template <> struct mpSliceToMeshField < MPF_ReplacementPressure > { using type = doubleSclr_t; };
 template <> struct mpSliceToMeshField < MPF_Vel_IncrTimesTanLatVertexOverRadius> { using type = vec2d_t; };
 template <> struct mpSliceToMeshField < MPF_OpenWaterArea       > { using type = doubleSclr_t; };
+template <> struct mpSliceToMeshField < MPF_IceAreaCellInitial  > { using type = doubleSclr_t; };
 template <> struct mpSliceToMeshField < MPF_IceAreaCategory     > { using type = double[nIceCategories]; };
 template <> struct mpSliceToMeshField < MPF_IceVolumeCategory   > { using type = double[nIceCategories]; };
 template <> struct mpSliceToMeshField < MPF_SnowVolumeCategory  > { using type = double[nIceCategories]; };
@@ -128,6 +130,7 @@ typedef MemberTypes<mpSliceToMeshField < MPF_Status              >::type,
                     mpSliceToMeshField < MPF_ReplacementPressure >::type,
                     mpSliceToMeshField < MPF_Vel_IncrTimesTanLatVertexOverRadius >::type,
                     mpSliceToMeshField < MPF_OpenWaterArea       >::type,
+                    mpSliceToMeshField < MPF_IceAreaCellInitial  >::type,
                     mpSliceToMeshField < MPF_IceAreaCategory     >::type,
                     mpSliceToMeshField < MPF_IceVolumeCategory   >::type,
                     mpSliceToMeshField < MPF_SnowVolumeCategory  >::type,

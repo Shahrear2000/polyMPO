@@ -50,6 +50,7 @@ enum MeshFieldIndex{
     MeshF_OceanStressCoeff,
     MeshF_OceanVelocity,
     MeshF_OpenWaterArea,
+    MeshF_IceAreaCellInitial,
     MeshF_IceAreaCategory,
     MeshF_IceVolumeCategory,
     MeshF_SnowVolumeCategory
@@ -95,6 +96,7 @@ template <> struct meshFieldToType < MeshF_OceanStressCell   > { using type = Ko
 template <> struct meshFieldToType < MeshF_OceanStressCoeff  > { using type = Kokkos::View<doubleSclr_t*>; };
 template <> struct meshFieldToType < MeshF_OceanVelocity     > { using type = Kokkos::View<vec2d_t*>; };
 template <> struct meshFieldToType < MeshF_OpenWaterArea     > { using type = Kokkos::View<doubleSclr_t*>; };
+template <> struct meshFieldToType < MeshF_IceAreaCellInitial> { using type = Kokkos::View<doubleSclr_t*>; };
 template <> struct meshFieldToType < MeshF_IceAreaCategory   > { using type = Kokkos::View<double**>; };
 template <> struct meshFieldToType < MeshF_IceVolumeCategory > { using type = Kokkos::View<double**>; };
 template <> struct meshFieldToType < MeshF_SnowVolumeCategory> { using type = Kokkos::View<double**>; };
@@ -137,6 +139,7 @@ const std::map<MeshFieldIndex, std::pair<MeshFieldType, std::string>> meshFields
         {MeshF_OceanStressCoeff, {MeshFType_VtxBased,"MeshField_OceanStressCoeff"}},
         {MeshF_OceanVelocity,    {MeshFType_VtxBased,"MeshField_OceanVelocity"}},
         {MeshF_OpenWaterArea,    {MeshFType_ElmBased,"MeshField_OpenWaterArea"}},
+        {MeshF_IceAreaCellInitial,{MeshFType_ElmBased, "MeshField_IceAreaCellInitial"}},
         {MeshF_IceAreaCategory,  {MeshFType_ElmBased,"MeshField_IceAreaCategory"}},
         {MeshF_IceVolumeCategory,{MeshFType_ElmBased,"MeshField_IceVolumeCategory"}},
         {MeshF_SnowVolumeCategory,{MeshFType_ElmBased,"MeshField_SnowVolumeCategory"}}
@@ -205,6 +208,7 @@ class Mesh {
     MeshFView<MeshF_OceanStressCoeff> oceanStressCoeff_;
     MeshFView<MeshF_OceanVelocity> oceanVelocity_;
     MeshFView<MeshF_OpenWaterArea> openWaterArea_;
+    MeshFView<MeshF_IceAreaCellInitial> iceAreaCellInitial_;
     MeshFView<MeshF_IceAreaCategory> iceAreaCategory_;
     MeshFView<MeshF_IceVolumeCategory> iceVolumeCategory_;
     MeshFView<MeshF_SnowVolumeCategory> snowVolumeCategory_;
@@ -424,6 +428,9 @@ auto Mesh::getMeshField(){
     }
     else if constexpr (index==MeshF_OpenWaterArea){
         return openWaterArea_;
+    }
+    else if constexpr (index==MeshF_IceAreaCellInitial){
+    return iceAreaCellInitial_;
     }
     else if constexpr (index==MeshF_IceAreaCategory){
         return iceAreaCategory_;

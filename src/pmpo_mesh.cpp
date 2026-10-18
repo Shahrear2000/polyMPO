@@ -109,6 +109,8 @@ namespace polyMPO{
     solveStress_ = MeshFView<MeshF_SolveStress>(meshFields2TypeAndString.at(MeshF_SolveStress).second, numElms_);
 
     openWaterArea_ = MeshFView<MeshF_OpenWaterArea>(meshFields2TypeAndString.at(MeshF_OpenWaterArea).second, numElms_);
+   
+    iceAreaCellInitial_ = MeshFView<MeshF_IceAreaCellInitial>(meshFields2TypeAndString.at(MeshF_IceAreaCellInitial).second, numElms_);
 
     oceanStressCell_ = MeshFView<MeshF_OceanStressCell>(meshFields2TypeAndString.at(MeshF_OceanStressCell).second, numElms_);
 

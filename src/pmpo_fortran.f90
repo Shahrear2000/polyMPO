@@ -1314,6 +1314,22 @@ module polympo
     type(c_ptr), value :: array
   end subroutine
 
+  subroutine polympo_setIceAreaCellInitialMP(mpMesh, nComps, numMPs, array) &
+             bind(C, NAME='polympo_setIceAreaCellInitialMP_f')
+    use :: iso_c_binding
+    type(c_ptr), value :: mpMesh
+    integer(c_int), value :: nComps, numMPs
+    type(c_ptr), intent(in), value :: array
+  end subroutine
+
+  subroutine polympo_getIceAreaCellInitialCell(mpMesh, nCells, array) &
+             bind(C, NAME='polympo_getIceAreaCellInitialCell_f')
+    use :: iso_c_binding
+    type(c_ptr), value :: mpMesh
+    integer(c_int), value :: nCells
+    type(c_ptr), value :: array
+  end subroutine
+
 subroutine polympo_setIceAreaCategoryMP(mpMesh, nComps, numMPs, array) &
            bind(C, NAME='polympo_setIceAreaCategoryMP_f')
    use :: iso_c_binding
