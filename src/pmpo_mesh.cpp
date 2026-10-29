@@ -112,6 +112,8 @@ namespace polyMPO{
    
     iceAreaCellInitial_ = MeshFView<MeshF_IceAreaCellInitial>(meshFields2TypeAndString.at(MeshF_IceAreaCellInitial).second, numElms_);
 
+    airStressCell_ = MeshFView<MeshF_AirStressCell>(meshFields2TypeAndString.at(MeshF_AirStressCell).second, numElms_);
+
     oceanStressCell_ = MeshFView<MeshF_OceanStressCell>(meshFields2TypeAndString.at(MeshF_OceanStressCell).second, numElms_);
 
     iceAreaCategory_    = MeshFView<MeshF_IceAreaCategory>(meshFields2TypeAndString.at(MeshF_IceAreaCategory).second, numElms_, nIceCategories);

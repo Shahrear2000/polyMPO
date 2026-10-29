@@ -153,6 +153,10 @@ void polympo_setOpenWaterAreaMP_f(MPMesh_ptr p_mpmesh, const int nComps, const i
 void polympo_getOpenWaterAreaCell_f(MPMesh_ptr p_mpmesh, const int nCells, double* array);
 void polympo_setIceAreaCellInitialMP_f(MPMesh_ptr p_mpmesh, const int nComps, const int numMPs, double* array);
 void polympo_getIceAreaCellInitialCell_f(MPMesh_ptr p_mpmesh, const int nCells, double* array);
+
+void polympo_setAirStressCellMP_f(MPMesh_ptr p_mpmesh, const int numMPs, double* uArray, double* vArray);
+void polympo_getAirStressCellCell_f(MPMesh_ptr p_mpmesh, const int nCells, double* uArray, double* vArray);
+
 void polympo_setIceAreaCategoryMP_f(MPMesh_ptr p_mpmesh, const int nComps, const int numMPs, double* array);
 void polympo_getIceAreaCategoryCell_f(MPMesh_ptr p_mpmesh, const int nComps, const int nCells, double* array);
 

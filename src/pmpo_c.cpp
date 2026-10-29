@@ -2023,6 +2023,61 @@ void polympo_getIceAreaCellInitialCell_f(MPMesh_ptr p_mpmesh, const int nCells, 
     }
 }
 
+void polympo_setAirStressCellMP_f(MPMesh_ptr p_mpmesh, const int numMPs, double* uArray, double* vArray){
+  Kokkos::Timer timer;
+  checkMPMeshValid(p_mpmesh);
+
+  auto p_MPs = ((polyMPO::MPMesh*)p_mpmesh)->p_MPs;
+  //Rank information
+  int self;
+  MPI_Comm comm = p_MPs->getMPIComm();
+  MPI_Comm_rank(comm, &self);
+  //Asserts
+  PMT_ALWAYS_ASSERT(numMPs >= p_MPs->getCount());
+  //MP Data
+  auto airStressCellMP = p_MPs->getData<polyMPO::MPF_AirStressCell>();
+  auto mpAppID         = p_MPs->getData<polyMPO::MPF_MP_APP_ID>();
+
+  //Copy U and V to device
+  kkViewHostU<const double*> uArray_h(uArray, numMPs);
+  kkViewHostU<const double*> vArray_h(vArray, numMPs);
+  Kokkos::View<double*> uArray_d("mpAirStressCellU", numMPs);
+  Kokkos::View<double*> vArray_d("mpAirStressCellV", numMPs);
+  Kokkos::deep_copy(uArray_d, uArray_h);
+  Kokkos::deep_copy(vArray_d, vArray_h);
+
+  //Set in PS
+  auto setAirStressCell = PS_LAMBDA(const int& elm, const int& mp, const int& mask){
+    if(mask){
+      airStressCellMP(mp,0) = uArray_d(mpAppID(mp));
+      airStressCellMP(mp,1) = vArray_d(mpAppID(mp));
+    }
+  };
+  p_MPs->parallel_for(setAirStressCell, "setMPAirStressCell");
+
+  pumipic::RecordTime("PolyMPO_setAirStressCell" + std::to_string(self), timer.seconds());
+
+  //Map MPs to cells (U and V together, numEntries = 2)
+  auto mpmesh = ((polyMPO::MPMesh*)p_mpmesh);
+  mpmesh->mapMPsToCells<polyMPO::MPF_AirStressCell>();
+}
+
+void polympo_getAirStressCellCell_f(MPMesh_ptr p_mpmesh, const int nCells, double* uArray, double* vArray){
+  checkMPMeshValid(p_mpmesh);
+  auto p_mesh = ((polyMPO::MPMesh*)p_mpmesh)->p_mesh;
+
+  //check the size
+  PMT_ALWAYS_ASSERT(p_mesh->getNumElements()==nCells);
+
+  //copy the device to host
+  auto field = p_mesh->getMeshField<polyMPO::MeshF_AirStressCell>();
+  auto h_field = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), field);
+  for(int i=0; i<nCells; i++){
+    uArray[i] = h_field(i,0);
+    vArray[i] = h_field(i,1);
+  }
+}
+
 void polympo_setIceAreaCategoryMP_f(MPMesh_ptr p_mpmesh, const int nComps, const int numMPs, double* array){
   Kokkos::Timer timer;
   checkMPMeshValid(p_mpmesh);
