@@ -59,7 +59,7 @@ class MPMesh{
     std::vector<std::vector<int>> ownerHaloLocalIDs;
 
     void startCommunication();
-    
+
     template <typename ViewType>
     void communicate_and_take_halo_contributions_staged(
         const ViewType& meshField,
@@ -90,7 +90,7 @@ class MPMesh{
       int numProcsTot = recvIDVec.size();
       //Flatten IDs
       int totalSize = 0;
-      std::vector<int> offsets(numProcsTot, 0); 
+      std::vector<int> offsets(numProcsTot, 0);
       for(int i=0; i<numProcsTot; i++) {
         offsets[i] = totalSize;
         totalSize += recvIDVec[i].size();
@@ -126,7 +126,7 @@ class MPMesh{
       timer.reset();
       Kokkos::View<double*> recvDataGPU("recvDataGPU", totalSize_data);
       auto hostView_data= Kokkos::View<double*, Kokkos::HostSpace>("recvDataCPU", totalSize_data);
-      std::copy(flatDataVec.begin(), flatDataVec.end(), hostView_data.data()); 
+      std::copy(flatDataVec.begin(), flatDataVec.end(), hostView_data.data());
       Kokkos::deep_copy(recvDataGPU, hostView_data);
       Kokkos::fence();
       assert(totalSize_data == totalSize*numEntries);
@@ -148,13 +148,13 @@ class MPMesh{
       pumipic::RecordTime("SD: Contribution" + std::to_string(self), timer.seconds());
     }
 
-    template <class ViewType> 
+    template <class ViewType>
     void communicateFieldsFromHostView(
-        const ViewType& fieldData, 
+        const ViewType& fieldData,
         const int numEntities, const int numEntries, int mode,
         std::vector<std::vector<int>>& recvIDVec,
         std::vector<std::vector<double>>& recvDataVec){
-    
+
       int self, numProcsTot;
       MPI_Comm comm = p_MPs->getMPIComm();
       MPI_Comm_rank(comm, &self);
@@ -170,13 +170,13 @@ class MPMesh{
       for(int i = 0; i < numProcsTot; i++){
         if(i==self) continue;
 
-        int numToSend = 0, numToRecv = 0; 
+        int numToSend = 0, numToRecv = 0;
         if(mode == 0) {
           //gather (halos send to owners)
           numToSend = numOwnersOnOtherProcs[i];
           numToRecv = numHalosOnOtherProcs[i];
         }
-        else{ 
+        else{
           //scatter (owners send to halos)
           numToSend = numHalosOnOtherProcs[i];
           numToRecv = numOwnersOnOtherProcs[i];
@@ -212,7 +212,7 @@ class MPMesh{
       std::vector<MPI_Request> requests;
       requests.reserve(4*numProcsTot);
       for(int proc = 0; proc < numProcsTot; proc++){
-        if(proc == self) continue;  
+        if(proc == self) continue;
         if(mode == 0 && numHalosOnOtherProcs[proc]){
           assert(recvIDVec[proc].size() == (size_t)numHalosOnOtherProcs[proc]);
           assert(recvDataVec[proc].size() == recvIDVec[proc].size() * (size_t)numEntries);
@@ -249,7 +249,7 @@ class MPMesh{
       }
       MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
     }
-    
+
     MPMesh(Mesh* inMesh, MaterialPoints* inMPs):
       p_mesh(inMesh), p_MPs(inMPs) {
     };
@@ -285,7 +285,7 @@ class MPMesh{
     void invertMatrix(const Kokkos::View<double**>& vtxMatrices, const double& radius, bool vtxCoeffCalc);
     Kokkos::View<double*[vec3d_nEntries][vec4d_nEntries]> precomputedVtxCoeffs_new;
     Kokkos::View<double*[vec3d_nEntries][vec4d_nEntries]> precomputedElmCoeffs_new;
-    Kokkos::View<double*> nearAnEdge;   
+    Kokkos::View<double*> nearAnEdge;
     Kokkos::View<double*> vtxMatrixMass;
 
     //Not used currently
@@ -704,6 +704,14 @@ class MPMesh{
     bool highOrderRemap = true;   // true: high-order (MLS) remap, false: low-order (area-weighted average)
     void setHighOrderRemap(bool flag) {highOrderRemap = flag;}
 
+    //Work buffers for mapMPsToCells, allocated once and reused across calls
+    //(reallocated only if the number of elements or entries grows)
+    Kokkos::View<int*> p2cNMPsPerCell;
+    Kokkos::View<double*> p2cSumAreaMP;
+    Kokkos::View<double*[10]> p2cLsMatrices;
+    Kokkos::View<double**> p2cMinVals;
+    Kokkos::View<double**> p2cMaxVals;
+
     template<MaterialPointSlice MPSlice>
     void mapMPsToCells(){
       //MP field mesh field mapping
@@ -711,7 +719,7 @@ class MPMesh{
       const int numEntries = mpSliceToNumEntries<MPSlice>();
       auto mpField   = p_MPs->getData<MPSlice>();
       auto meshField = p_mesh->getMeshField<meshFieldIndex>();
-      Kokkos::deep_copy(meshField, 0.0); 
+      Kokkos::deep_copy(meshField, 0.0);
 
       //MP fields
       auto mpArea = p_MPs->getData<MPF_Area>();
@@ -724,8 +732,15 @@ class MPMesh{
       if(p_mesh->getGeomType() == geom_spherical_surf)
         radius=p_mesh->getSphereRadius();
 
-      Kokkos::View<int*> nMPsPerCell("nMPsPerCell", nElms);
-      Kokkos::View<double*> sumAreaMP("sumAreaMP", nElms);
+      //Reuse work buffers; allocate only on first call or if nElms changes
+      if(p2cNMPsPerCell.extent(0) != (size_t)nElms){
+        p2cNMPsPerCell = Kokkos::View<int*>("nMPsPerCell", nElms);
+        p2cSumAreaMP = Kokkos::View<double*>("sumAreaMP", nElms);
+        p2cLsMatrices = Kokkos::View<double*[10]>("VtxMatrices", nElms);
+      }
+      //Local copies: device lambdas must capture Views, not 'this'
+      auto nMPsPerCell = p2cNMPsPerCell;
+      auto sumAreaMP = p2cSumAreaMP;
       Kokkos::deep_copy(nMPsPerCell, 0);
       Kokkos::deep_copy(sumAreaMP, 0.0);
       auto calcMPsCell = PS_LAMBDA(const int& elm, const int& mp, const int& mask){
@@ -736,8 +751,13 @@ class MPMesh{
       };
       p_MPs->parallel_for(calcMPsCell, "calcN_MPsCell");
 
-      Kokkos::View<double**> minVals("minVals", nElms, numEntries);
-      Kokkos::View<double**> maxVals("maxVals", nElms, numEntries);
+      //Reuse min/max buffers; grow only (only the first numEntries columns are used)
+      if(p2cMinVals.extent(0) != (size_t)nElms || p2cMinVals.extent(1) < (size_t)numEntries){
+        p2cMinVals = Kokkos::View<double**>("minVals", nElms, numEntries);
+        p2cMaxVals = Kokkos::View<double**>("maxVals", nElms, numEntries);
+      }
+      auto minVals = p2cMinVals;
+      auto maxVals = p2cMaxVals;
       Kokkos::deep_copy(minVals, std::numeric_limits<double>::max());
       Kokkos::deep_copy(maxVals, std::numeric_limits<double>::lowest());
 
@@ -746,7 +766,7 @@ class MPMesh{
 
       //Calculate the matrix
       constexpr int numEntriesMatrix=10;
-      Kokkos::View<double*[numEntriesMatrix]> lsMatrices("VtxMatrices", p_mesh->getNumElements());
+      auto lsMatrices = p2cLsMatrices;
       Kokkos::deep_copy(lsMatrices, 0);
 
       auto assemble = PS_LAMBDA(const int& elm, const int& mp, const int& mask) {
@@ -757,17 +777,17 @@ class MPMesh{
           Kokkos::atomic_add(&lsMatrices(elm,1), wp*(-elmCenter(elm,0)+mpPos(mp,0))/radius);
           Kokkos::atomic_add(&lsMatrices(elm,2), wp*(-elmCenter(elm,1)+mpPos(mp,1))/radius);
           Kokkos::atomic_add(&lsMatrices(elm,3), wp*(-elmCenter(elm,2)+mpPos(mp,2))/radius);
-          Kokkos::atomic_add(&lsMatrices(elm,4), wp*(-elmCenter(elm,0)+mpPos(mp,0)) * 
+          Kokkos::atomic_add(&lsMatrices(elm,4), wp*(-elmCenter(elm,0)+mpPos(mp,0)) *
                                                     (-elmCenter(elm,0)+mpPos(mp,0))/(radius*radius));
           Kokkos::atomic_add(&lsMatrices(elm,5), wp*(-elmCenter(elm,0)+mpPos(mp,0)) * (
                                                      -elmCenter(elm,1)+mpPos(mp,1))/(radius*radius));
-          Kokkos::atomic_add(&lsMatrices(elm,6), wp*(-elmCenter(elm,0)+mpPos(mp,0)) * 
+          Kokkos::atomic_add(&lsMatrices(elm,6), wp*(-elmCenter(elm,0)+mpPos(mp,0)) *
                                                     (-elmCenter(elm,2)+mpPos(mp,2))/(radius*radius));
-          Kokkos::atomic_add(&lsMatrices(elm,7), wp*(-elmCenter(elm,1)+mpPos(mp,1)) * 
+          Kokkos::atomic_add(&lsMatrices(elm,7), wp*(-elmCenter(elm,1)+mpPos(mp,1)) *
                                                     (-elmCenter(elm,1)+mpPos(mp,1))/(radius*radius));
-          Kokkos::atomic_add(&lsMatrices(elm,8), wp*(-elmCenter(elm,1)+mpPos(mp,1)) * 
+          Kokkos::atomic_add(&lsMatrices(elm,8), wp*(-elmCenter(elm,1)+mpPos(mp,1)) *
                                                     (-elmCenter(elm,2)+mpPos(mp,2))/(radius*radius));
-          Kokkos::atomic_add(&lsMatrices(elm,9), wp*(-elmCenter(elm,2)+mpPos(mp,2)) * 
+          Kokkos::atomic_add(&lsMatrices(elm,9), wp*(-elmCenter(elm,2)+mpPos(mp,2)) *
                                                     (-elmCenter(elm,2)+mpPos(mp,2))/(radius*radius));
         }
       };
@@ -781,11 +801,11 @@ class MPMesh{
           if(nMPsPerCell(elm) <= 0) return;
           double wp = mpArea(mp,0)/sumAreaMP(elm);
           Vec3d pXYZ = {mpPos(mp,0) - elmCenter(elm,0), mpPos(mp,1) - elmCenter(elm,1), mpPos(mp,2) - elmCenter(elm,2)};
-          double psi = wp * (precomputedElmCoeffs_l(elm, 0, 0) + (precomputedElmCoeffs_l(elm, 0, 1) * pXYZ[0] + 
+          double psi = wp * (precomputedElmCoeffs_l(elm, 0, 0) + (precomputedElmCoeffs_l(elm, 0, 1) * pXYZ[0] +
                                                                   precomputedElmCoeffs_l(elm, 0, 2) * pXYZ[1] +
                                                                   precomputedElmCoeffs_l(elm, 0, 3) * pXYZ[2])/radius);
 
-                
+
          for (int comp=0; comp<numEntries; comp++)
          {
           Kokkos::atomic_add(&meshField(elm, comp), mpField(mp,comp)*psi);
@@ -862,7 +882,7 @@ class MPMesh{
         Kokkos::View<double*> cellMinValues("cellMinValues", nElms);
         Kokkos::View<double*> cellMaxValues("cellMaxValues", nElms);
 
-        Kokkos::parallel_for("calcMatrix", nElms, KOKKOS_LAMBDA(const int elm){   
+        Kokkos::parallel_for("calcMatrix", nElms, KOKKOS_LAMBDA(const int elm){
           if(nMPsPerCell(elm) <= 0) return;
           double lsMatrix[3]={0.0};
           double rsMatrix[2]={0.0};
@@ -874,7 +894,7 @@ class MPMesh{
             int elmID = elm2ElmConn(elm,i)-1;
             if(elmID < 0 || elmID >= nElms)
               continue;
-            lsMatrix[0] += (gnomProjCellOnCell(elm, i-1, 0) - gnomProjCell(elm, 0)) * (gnomProjCellOnCell(elm, i-1, 0) - gnomProjCell(elm, 0)); 
+            lsMatrix[0] += (gnomProjCellOnCell(elm, i-1, 0) - gnomProjCell(elm, 0)) * (gnomProjCellOnCell(elm, i-1, 0) - gnomProjCell(elm, 0));
             lsMatrix[1] += (gnomProjCellOnCell(elm, i-1, 0) - gnomProjCell(elm, 0)) * (gnomProjCellOnCell(elm, i-1, 1) - gnomProjCell(elm, 1));
             lsMatrix[2] += (gnomProjCellOnCell(elm, i-1, 1) - gnomProjCell(elm, 1)) * (gnomProjCellOnCell(elm, i-1, 1) - gnomProjCell(elm, 1));
             rsMatrix[0] += (meshField(elmID, comp)- meshField(elm, comp)) * (gnomProjCellOnCell(elm, i-1, 0) - gnomProjCell(elm, 0));
@@ -896,7 +916,7 @@ class MPMesh{
           cellMinValues(elm) = cellMin;
           cellMaxValues(elm) = cellMax;
         });
-        
+
         Kokkos::fence();
 
         auto calcMPValue = PS_LAMBDA(const int& elm, const int& mp, const int& mask){
