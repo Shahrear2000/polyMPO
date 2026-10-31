@@ -700,6 +700,10 @@ class MPMesh{
 
 #endif
 
+    //Particle-to-cell mapping
+    bool highOrderRemap = true;   // true: high-order (MLS) remap, false: low-order (area-weighted average)
+    void setHighOrderRemap(bool flag) {highOrderRemap = flag;}
+
     template<MaterialPointSlice MPSlice>
     void mapMPsToCells(){
       //MP field mesh field mapping
@@ -732,8 +736,13 @@ class MPMesh{
       };
       p_MPs->parallel_for(calcMPsCell, "calcN_MPsCell");
 
-      //TODO put them as inputs
-      bool higherOrderRemap = true;
+      Kokkos::View<double**> minVals("minVals", nElms, numEntries);
+      Kokkos::View<double**> maxVals("maxVals", nElms, numEntries);
+      Kokkos::deep_copy(minVals, std::numeric_limits<double>::max());
+      Kokkos::deep_copy(maxVals, std::numeric_limits<double>::lowest());
+
+      //Remap order: high order (MLS) or low order (area-weighted average)
+      if (highOrderRemap){
 
       //Calculate the matrix
       constexpr int numEntriesMatrix=10;
@@ -767,11 +776,6 @@ class MPMesh{
       invertMatrix(lsMatrices, radius, false);
       auto precomputedElmCoeffs_l = this->precomputedElmCoeffs_new;
 
-      Kokkos::View<double**> minVals("minVals", nElms, numEntries);
-      Kokkos::View<double**> maxVals("maxVals", nElms, numEntries);
-      Kokkos::deep_copy(minVals, std::numeric_limits<double>::max());
-      Kokkos::deep_copy(maxVals, std::numeric_limits<double>::lowest());
-
       auto calcCellField= PS_LAMBDA(const int& elm, const int& mp, const int& mask) {
         if(mask) { //if material point is 'active'/'enabled
           if(nMPsPerCell(elm) <= 0) return;
@@ -791,6 +795,22 @@ class MPMesh{
         }
       };
       p_MPs->parallel_for(calcCellField, "calcCellField");
+      }
+      else{
+        //Low-order remap: area-weighted average of MP values in each cell
+        auto calcCellFieldLowOrder = PS_LAMBDA(const int& elm, const int& mp, const int& mask){
+          if(mask){ //if material point is 'active'/'enabled'
+            if(nMPsPerCell(elm) <= 0) return;
+            double wp = mpArea(mp,0)/sumAreaMP(elm);
+            for (int comp=0; comp<numEntries; comp++){
+              Kokkos::atomic_add(&meshField(elm, comp), mpField(mp,comp)*wp);
+              Kokkos::atomic_fetch_min(&minVals(elm,comp), mpField(mp,comp));
+              Kokkos::atomic_fetch_max(&maxVals(elm,comp), mpField(mp,comp));
+            }
+          }
+        };
+        p_MPs->parallel_for(calcCellFieldLowOrder, "calcCellFieldLowOrder");
+      }
 
       Kokkos::fence();
 
