@@ -1919,6 +1919,18 @@ void polympo_finalize_deludelvDyn_f(MPMesh_ptr p_mpmesh){
   });
 }
 
+//Particle-to-cell mapping: per-cell mapping data are computed once between
+//begin and end calls and reused by the polympo_set*MP calls in between
+void polympo_beginP2CMapping_f(MPMesh_ptr p_mpmesh){
+  checkMPMeshValid(p_mpmesh);
+  ((polyMPO::MPMesh*)p_mpmesh)->beginP2CMapping();
+}
+
+void polympo_endP2CMapping_f(MPMesh_ptr p_mpmesh){
+  checkMPMeshValid(p_mpmesh);
+  ((polyMPO::MPMesh*)p_mpmesh)->endP2CMapping();
+}
+
 void polympo_setOpenWaterAreaMP_f(MPMesh_ptr p_mpmesh, const int nComps, const int numMPs, double* array){
   Kokkos::Timer timer;
   checkMPMeshValid(p_mpmesh);

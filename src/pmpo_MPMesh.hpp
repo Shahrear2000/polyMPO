@@ -712,6 +712,16 @@ class MPMesh{
     Kokkos::View<double**> p2cMinVals;
     Kokkos::View<double**> p2cMaxVals;
 
+    //Per-cell mapping data (nMPsPerCell, sumAreaMP, MLS coefficients) depend only on
+    //MP positions and areas, which do not change within one PCM call sequence.
+    //Between beginP2CMapping() and endP2CMapping() they are computed by the first
+    //mapMPsToCells call and reused by the following calls.
+    bool p2cCacheActive = false;    //true between beginP2CMapping and endP2CMapping
+    bool p2cCacheValid = false;     //true once the per-cell data has been computed
+    bool p2cCacheHighOrder = true;  //remap order the cached data belongs to
+    void beginP2CMapping() {p2cCacheActive = true; p2cCacheValid = false;}
+    void endP2CMapping() {p2cCacheActive = false; p2cCacheValid = false;}
+
     template<MaterialPointSlice MPSlice>
     void mapMPsToCells(){
       //MP field mesh field mapping
@@ -732,6 +742,9 @@ class MPMesh{
       if(p_mesh->getGeomType() == geom_spherical_surf)
         radius=p_mesh->getSphereRadius();
 
+      //Reuse per-cell data computed earlier in this PCM (same remap order)
+      const bool useCache = p2cCacheActive && p2cCacheValid && (p2cCacheHighOrder == highOrderRemap);
+
       //Reuse work buffers; allocate only on first call or if nElms changes
       if(p2cNMPsPerCell.extent(0) != (size_t)nElms){
         p2cNMPsPerCell = Kokkos::View<int*>("nMPsPerCell", nElms);
@@ -741,15 +754,17 @@ class MPMesh{
       //Local copies: device lambdas must capture Views, not 'this'
       auto nMPsPerCell = p2cNMPsPerCell;
       auto sumAreaMP = p2cSumAreaMP;
-      Kokkos::deep_copy(nMPsPerCell, 0);
-      Kokkos::deep_copy(sumAreaMP, 0.0);
-      auto calcMPsCell = PS_LAMBDA(const int& elm, const int& mp, const int& mask){
-        if(mask){
-          Kokkos::atomic_increment(&nMPsPerCell(elm));
-          Kokkos::atomic_add(&sumAreaMP(elm), mpArea(mp, 0));
-        }
-      };
-      p_MPs->parallel_for(calcMPsCell, "calcN_MPsCell");
+      if(!useCache){
+        Kokkos::deep_copy(nMPsPerCell, 0);
+        Kokkos::deep_copy(sumAreaMP, 0.0);
+        auto calcMPsCell = PS_LAMBDA(const int& elm, const int& mp, const int& mask){
+          if(mask){
+            Kokkos::atomic_increment(&nMPsPerCell(elm));
+            Kokkos::atomic_add(&sumAreaMP(elm), mpArea(mp, 0));
+          }
+        };
+        p_MPs->parallel_for(calcMPsCell, "calcN_MPsCell");
+      }
 
       //Reuse min/max buffers; grow only (only the first numEntries columns are used)
       if(p2cMinVals.extent(0) != (size_t)nElms || p2cMinVals.extent(1) < (size_t)numEntries){
@@ -764,7 +779,8 @@ class MPMesh{
       //Remap order: high order (MLS) or low order (area-weighted average)
       if (highOrderRemap){
 
-      //Calculate the matrix
+      //Calculate the matrix (skipped if the coefficients were computed earlier in this PCM)
+      if(!useCache){
       constexpr int numEntriesMatrix=10;
       auto lsMatrices = p2cLsMatrices;
       Kokkos::deep_copy(lsMatrices, 0);
@@ -794,6 +810,7 @@ class MPMesh{
       p_MPs->parallel_for(assemble, "assembly");
 
       invertMatrix(lsMatrices, radius, false);
+      }
       auto precomputedElmCoeffs_l = this->precomputedElmCoeffs_new;
 
       auto calcCellField= PS_LAMBDA(const int& elm, const int& mp, const int& mask) {
@@ -830,6 +847,12 @@ class MPMesh{
           }
         };
         p_MPs->parallel_for(calcCellFieldLowOrder, "calcCellFieldLowOrder");
+      }
+
+      //Mark the per-cell data as reusable for the remaining calls in this PCM
+      if(p2cCacheActive && !useCache){
+        p2cCacheValid = true;
+        p2cCacheHighOrder = highOrderRemap;
       }
 
       Kokkos::fence();

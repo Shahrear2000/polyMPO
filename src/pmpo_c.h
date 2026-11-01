@@ -149,6 +149,9 @@ void polympo_reconstruct_velocity_with_MPI_f(MPMesh_ptr p_mpmesh);
 void polympo_init_deludelvDyn_f(MPMesh_ptr p_mpmesh);
 void polympo_aggregate_deluDyn_f(MPMesh_ptr p_mpmesh);
 void polympo_finalize_deludelvDyn_f(MPMesh_ptr p_mpmesh);
+// Particle-to-cell mapping
+void polympo_beginP2CMapping_f(MPMesh_ptr p_mpmesh);
+void polympo_endP2CMapping_f(MPMesh_ptr p_mpmesh);
 void polympo_setOpenWaterAreaMP_f(MPMesh_ptr p_mpmesh, const int nComps, const int numMPs, double* array);
 void polympo_getOpenWaterAreaCell_f(MPMesh_ptr p_mpmesh, const int nCells, double* array);
 void polympo_setIceAreaCellInitialMP_f(MPMesh_ptr p_mpmesh, const int nComps, const int numMPs, double* array);

@@ -1298,6 +1298,18 @@ module polympo
     type(c_ptr), value :: mpMesh
   end subroutine
 
+  subroutine polympo_beginP2CMapping(mpMesh) &
+             bind(C, NAME='polympo_beginP2CMapping_f')
+    use :: iso_c_binding
+    type(c_ptr), value :: mpMesh
+  end subroutine
+
+  subroutine polympo_endP2CMapping(mpMesh) &
+             bind(C, NAME='polympo_endP2CMapping_f')
+    use :: iso_c_binding
+    type(c_ptr), value :: mpMesh
+  end subroutine
+
   subroutine polympo_setOpenWaterAreaMP(mpMesh, nComps, numMPs, array) &
              bind(C, NAME='polympo_setOpenWaterAreaMP_f')
     use :: iso_c_binding
