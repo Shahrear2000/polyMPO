@@ -121,7 +121,10 @@ void MPMesh::reconstruct_coeff_full(){
 
   //Matrix for each vertex
   constexpr int numEntriesMatrix=10;
-  Kokkos::View<double*[numEntriesMatrix]> vtxMatrices("VtxMatrices", p_mesh->getNumVertices());
+  //Reuse the vertex matrix array; allocate only on first call or if nVertices changes
+  if(vrVtxMatrices.extent(0) != (size_t)numVertices)
+    vrVtxMatrices = Kokkos::View<double*[numEntriesMatrix]>("VtxMatrices", numVertices);
+  auto vtxMatrices = vrVtxMatrices;
   Kokkos::deep_copy(vtxMatrices, 0);
 
   //Earth Radius
@@ -169,7 +172,10 @@ void MPMesh::reconstruct_coeff_full(){
   pumipic::RecordTime("Communicate Matrix Values" + std::to_string(self), timer.seconds());
  
   //Store the 1st matrix element
-  Kokkos::View<double*>vtxMatrixMass_l("vtxMass", numVertices);
+  //Reuse the member array; allocate only on first call or if nVertices changes
+  if(vtxMatrixMass.extent(0) != (size_t)numVertices)
+    vtxMatrixMass = Kokkos::View<double*>("vtxMass", numVertices);
+  auto vtxMatrixMass_l = vtxMatrixMass;
   Kokkos::parallel_for("storeMatrixMass", numVertices, KOKKOS_LAMBDA(const int vtx){
     vtxMatrixMass_l(vtx) = vtxMatrices(vtx, 0);
   }); 
@@ -197,9 +203,17 @@ void MPMesh::invertMatrix(const Kokkos::View<double**>& vtxMatrices, const doubl
   double eps = 1e-7;
   double truncateFactor = 0.05;
 
-  Kokkos::View<double*[3][vec4d_nEntries]> VtxCoeffs("VtxCoeffs", nEntities);
+  //Reuse the coefficient and nearAnEdge arrays (members); allocate only on first call or if sizes change
+  auto& coeffsMember = vtxCoeffCalc ? precomputedVtxCoeffs_new : precomputedElmCoeffs_new;
+  if(coeffsMember.extent(0) != (size_t)nEntities)
+    coeffsMember = Kokkos::View<double*[vec3d_nEntries][vec4d_nEntries]>("VtxCoeffs", nEntities);
+  auto VtxCoeffs = coeffsMember;
   Kokkos::deep_copy(VtxCoeffs, 0.0);
-  Kokkos::View<double*> nearAnEdge_l("nearAnEdge_l", nVertices);
+  auto& nearAnEdgeMember = vtxCoeffCalc ? nearAnEdge : invNearAnEdgeScratch;
+  if(nearAnEdgeMember.extent(0) != (size_t)nVertices)
+    nearAnEdgeMember = Kokkos::View<double*>("nearAnEdge_l", nVertices);
+  auto nearAnEdge_l = nearAnEdgeMember;
+  Kokkos::deep_copy(nearAnEdge_l, 0.0);
   
   Kokkos::parallel_for("invertMatrix", nEntities, KOKKOS_LAMBDA(const int vtx){
     if(vtxMatrices(vtx, 0) < eps)

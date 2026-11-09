@@ -287,6 +287,8 @@ class MPMesh{
     Kokkos::View<double*[vec3d_nEntries][vec4d_nEntries]> precomputedElmCoeffs_new;
     Kokkos::View<double*> nearAnEdge;
     Kokkos::View<double*> vtxMatrixMass;
+    Kokkos::View<double*[10]> vrVtxMatrices;   //reused vertex matrix array for reconstruct_coeff_full
+    Kokkos::View<double*> invNearAnEdgeScratch;   //reused nearAnEdge array for invertMatrix in the cell case
 
     //Not used currently
     std::map<MeshFieldIndex, std::function<void()>> reconstructSlice = std::map<MeshFieldIndex, std::function<void()>>();
