@@ -435,6 +435,23 @@ module polympo
     type(c_ptr), value :: array
   end subroutine
 
+  subroutine polympo_getIcePressureMP(mpMesh, nComps, numMPs, array) &
+             bind(C, NAME='polympo_getIcePressureMP_f')
+    use :: iso_c_binding
+    type(c_ptr), value :: mpMesh
+    integer(c_int), value :: nComps, numMPs
+    type(c_ptr), value :: array
+  end subroutine
+
+  subroutine polympo_calculateIceStrength(mpMesh, mode, kstrength, krdgPartic, krdgRedist, &
+                                          Pstar, Cstar, Cf, Cp, muRdg, puny) &
+             bind(C, NAME='polympo_calculateIceStrength_f')
+    use :: iso_c_binding
+    type(c_ptr), value :: mpMesh
+    integer(c_int), value :: mode, kstrength, krdgPartic, krdgRedist
+    real(c_double), value :: Pstar, Cstar, Cf, Cp, muRdg, puny
+  end subroutine
+
   subroutine polympo_setOceanVelocity(mpMesh, nComps, nVertices, uArray, vArray) &
              bind(C, NAME='polympo_setOceanVelocity_f')
     use :: iso_c_binding

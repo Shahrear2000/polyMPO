@@ -309,6 +309,10 @@ class MPMesh{
 
     void calculateStrain();
     void calculateStress(const int constitutive_relation);
+    void calculateIceStrength(const int mode, const int kstrength, const int krdgPartic,
+                              const int krdgRedist, const double Pstar, const double Cstar,
+                              const double Cf, const double Cp, const double muRdg,
+                              const double puny);
     void calculateStressDivergence();
 
     //Prints the selected halo-exchange path once, on rank 0

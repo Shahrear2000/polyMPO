@@ -806,6 +806,35 @@ void polympo_setIcePressureMP_f(MPMesh_ptr p_mpmesh, const int nComps, const int
   pumipic::RecordTime("PolyMPO_setIcePressure" + std::to_string(self), timer.seconds());
 }
 
+void polympo_getIcePressureMP_f(MPMesh_ptr p_mpmesh, const int nComps, const int numMPs, double* icePressureMPHost){
+  Kokkos::Timer timer;
+  checkMPMeshValid(p_mpmesh);
+  auto p_MPs = ((polyMPO::MPMesh*)p_mpmesh)->p_MPs;
+  PMT_ALWAYS_ASSERT(nComps == 1);
+  PMT_ALWAYS_ASSERT(numMPs >= p_MPs->getCount());
+  auto mpIcePressure = p_MPs->getData<polyMPO::MPF_IcePressure>();
+  auto mpAppID = p_MPs->getData<polyMPO::MPF_MP_APP_ID>();
+  Kokkos::View<double**> mpIcePressureCopy("mpIcePressureCopy", nComps, numMPs);
+  auto getMPIcePressure = PS_LAMBDA(const int& elm, const int& mp, const int& mask){
+    if(mask) mpIcePressureCopy(0,mpAppID(mp)) = mpIcePressure(mp,0);
+  };
+  p_MPs->parallel_for(getMPIcePressure, "getIcePressure");
+  kkDbl2dViewHostU arrayHost(icePressureMPHost, nComps, numMPs);
+  Kokkos::deep_copy(arrayHost, mpIcePressureCopy);
+  pumipic::RecordTime("PolyMPO_getIcePressure", timer.seconds());
+}
+
+void polympo_calculateIceStrength_f(MPMesh_ptr p_mpmesh, const int mode,
+                                    const int kstrength, const int krdgPartic, const int krdgRedist,
+                                    const double Pstar, const double Cstar,
+                                    const double Cf, const double Cp,
+                                    const double muRdg, const double puny){
+  checkMPMeshValid(p_mpmesh);
+  auto mpMesh = ((polyMPO::MPMesh*)p_mpmesh);
+  mpMesh->calculateIceStrength(mode, kstrength, krdgPartic, krdgRedist,
+                               Pstar, Cstar, Cf, Cp, muRdg, puny);
+}
+
 void polympo_setOceanVelocity_f(MPMesh_ptr p_mpmesh, const int nComps, const int nVertices, const double* uArray, const double* vArray){
   checkMPMeshValid(p_mpmesh);
   auto p_mesh = ((polyMPO::MPMesh*)p_mpmesh)->p_mesh;

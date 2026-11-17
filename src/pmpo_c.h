@@ -55,6 +55,8 @@ void polympo_getMPStress_f(MPMesh_ptr p_mpmesh, const int nComps, const int numM
 void polympo_setAreaMP_f(MPMesh_ptr p_mpmesh, const int nComps, const int numMPs, double* areaMPHost);
 void polympo_getAreaMP_f(MPMesh_ptr p_mpmesh, const int nComps, const int numMPs, double* areaMPHost);
 void polympo_setIcePressureMP_f(MPMesh_ptr p_mpmesh, const int nComps, const int numMPs, double* icePressureMPHost);
+void polympo_getIcePressureMP_f(MPMesh_ptr p_mpmesh, const int nComps, const int numMPs, double* icePressureMPHost);
+void polympo_calculateIceStrength_f(MPMesh_ptr p_mpmesh, const int mode, const int kstrength, const int krdgPartic, const int krdgRedist, const double Pstar, const double Cstar, const double Cf, const double Cp, const double muRdg, const double puny);
 void polympo_setOceanVelocity_f(MPMesh_ptr p_mpmesh, const int nComps, const int nVertices, const double* uArray, const double* vArray);
 void polympo_subcycle_prep_arrays_f(MPMesh_ptr p_mpmesh);
 void polympo_setReplacementPressureMP_f(MPMesh_ptr p_mpmesh, const int nComps, const int numMPs, double* replacementPressureMPHost);

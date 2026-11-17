@@ -94,6 +94,38 @@ void MPMesh::calculateStress(const int constitutive_relation){
   p_MPs->parallel_for(setMPStress, "setMPStress");
 }
 
+void MPMesh::calculateIceStrength(const int mode, const int kstrength, const int krdgPartic,
+                                  const int krdgRedist, const double Pstar, const double Cstar,
+                                  const double Cf, const double Cp, const double muRdg,
+                                  const double puny){
+  Kokkos::Timer timer;
+  int self;
+  MPI_Comm comm = p_MPs->getMPIComm();
+  MPI_Comm_rank(comm, &self);
+
+  const IceStrengthParams params{mode, kstrength, krdgPartic, krdgRedist, Pstar, Cstar, Cf, Cp, muRdg, puny};
+  //MeshFields
+  auto solveStress      = p_mesh->getMeshField<polyMPO::MeshF_SolveStress>();
+  //MPFields
+  auto MPsIcePressure   = p_MPs->getData<polyMPO::MPF_IcePressure>();
+  auto MPsIceAreaCat    = p_MPs->getData<polyMPO::MPF_IceAreaCategory>();
+  auto MPsIceVolumeCat  = p_MPs->getData<polyMPO::MPF_IceVolumeCategory>();
+
+  auto setMPIceStrength = PS_LAMBDA(const int& elm, const int& mp, const int& mask){
+    if(mask){
+      double aicen[nIceCategories], vicen[nIceCategories];
+      for(int n=0; n<nIceCategories; n++){
+        aicen[n] = MPsIceAreaCat(mp, n);
+        vicen[n] = MPsIceVolumeCat(mp, n);
+      }
+      MPsIcePressure(mp, 0) = iceStrengthMP<nIceCategories>(solveStress(elm), aicen, vicen, params);
+    }
+  };
+  p_MPs->parallel_for(setMPIceStrength, "setMPIceStrength");
+  Kokkos::fence();
+  pumipic::RecordTime("Ice_Strength" + std::to_string(self), timer.seconds());
+}
+
 void MPMesh::calculateStressDivergence(){
 
   Kokkos::Timer timer;
